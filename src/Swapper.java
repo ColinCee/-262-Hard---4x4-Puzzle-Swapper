@@ -41,8 +41,10 @@ public class Swapper {
 	public boolean AStarSearch(int[][] start, int[][] goal){
 		// The set of nodes already evaluated.
 		List<int[][]> closedList = new ArrayList<int[][]>();
+		
 		// The set of currently discovered nodes still to be evaluated.
-		List<int[][]> openList = new ArrayList<int[][]>();
+		StateComparator comparator = new StateComparator(this);
+		PriorityQueue<int[][]> openList = new PriorityQueue<int[][]>(11, comparator);
 
         // For each node, which node it can most efficiently be reached from.
         // If a node can be reached from many nodes, cameFrom will eventually contain the
@@ -62,7 +64,7 @@ public class Swapper {
         
         double counter = 0;
         while(!openList.isEmpty()){
-        	int[][] current = findMinfScoreState(openList, fScore);
+        	int[][] current = openList.poll();
         	if(Arrays.deepEquals(current, goal)){
         		reconstructPath(cameFrom,current);
         		return true;
@@ -72,14 +74,15 @@ public class Swapper {
         	closedList.add(current);
         	
         	for(int[][] neighbor : getNextStates(current)){
+        		boolean addNewNode = false;
         		// Ignore the neighbor which is already evaluated.
         		if(deepListContains(closedList, neighbor))
         			continue;
         		// The distance from start to a neighbor
     			int tentative_gScore = deepGetHashMap(gScore, current) + 1;
     			
-    			if(!deepListContains(openList,neighbor))
-    				openList.add(neighbor);		// Discover a new node
+    			if(!deepPQContains(openList,neighbor))
+    				addNewNode = true;
     			else if(tentative_gScore >= deepGetHashMap(gScore, neighbor))
     				continue;	// This is not a better path.
     			
@@ -87,6 +90,8 @@ public class Swapper {
 				cameFrom.put(neighbor, current);
 				gScore.put(neighbor, tentative_gScore);
 				fScore.put(neighbor, deepGetHashMap(gScore, neighbor) + heuristicEstimate(neighbor,goal));
+				if(addNewNode)
+					openList.add(neighbor);		// Discover a new node
 			
         	}
         	counter++;
@@ -97,35 +102,28 @@ public class Swapper {
         return false;
 		
 	}
-	
-	
-
-	private int[][] findMinfScoreState(List<int[][]> openList, HashMap<int[][], Integer> fScoreMap) {
-		int lowestfScore = Integer.MAX_VALUE;
-		int[][] lowestfScoreState = null;
-		
-		for(int i=0;i<openList.size();i++){
-			int[][] current = openList.get(i);
-			int hashMapfScore = deepGetHashMap(fScoreMap, current);
-			if(hashMapfScore < lowestfScore){
-				lowestfScore = hashMapfScore;
-				lowestfScoreState = current;
-			}
-		}
-		return lowestfScoreState;
-	}
-
 
 	private int heuristicEstimate(int[][] state, int[][] goal) {
-		int matches = 0;
+		int distance = 0;
 		assert(state.length == goal.length) : "Mismatch array sizes";
 		for(int i=0;i<state.length; i++){
 			for(int j=0;j<state.length; j++){
-				if(goal[i][j] == state[i][j])
-					matches++;
+				if(state[i][j] != goal[i][j]){
+					distance += getManhattanDistance(state[i][j],goal,i,j);
+				}
 			}
 		}
-		return 16 - matches;
+		return distance;
+	}
+	private int getManhattanDistance(int match, int[][] goal, int a, int b){
+		int distance = 0;
+		for(int i=0;i<goal.length;i++){
+			for(int j=0;j<goal.length;j++){
+				if(match == goal[i][j])
+					distance = Math.abs(a-i) + Math.abs(b-j);
+			}
+		}
+		return distance;
 	}
 	private void reconstructPath(Map<int[][],int[][]> cameFrom, int[][] current){
 		Stack<int[][]> path = new Stack<int[][]>();
@@ -214,16 +212,6 @@ public class Swapper {
 				return true;
 		}
 		return false;
-	}
-	
-	//Deep checking of the hashmap
-	private boolean deepContainsKey(int[][] key, Map<int[][], List<int[][]>> stateMap){
-		for(int[][] k : stateMap.keySet()){
-			if(Arrays.deepEquals(k, key))
-				return true;
-		}
-		return false;
-		
 	}
 	
 	private boolean deepPQContains(PriorityQueue<int[][]> PQ, int[][] state){
