@@ -1,10 +1,4 @@
-import java.io.EOFException;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -14,16 +8,30 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Queue;
+import java.util.Stack;
 
 public class Swapper {
 	
+	int[][] goal = {{1,2,3,4},
+					{5,6,7,8},
+					{9,10,11,12},
+					{13,14,15,16}};
+	
+	int[][] goal2 = {{4, 2, 6, 14},
+					{8, 15, 3, 1},
+					{10, 5, 16, 2},
+					{7, 11, 9, 3}};
+	
+	int[][] initialState = 	{{4, 2, 6, 14},
+							{15, 8, 3, 1},
+							{10, 5, 9, 2},
+							{7, 11, 16, 3}};
+
 	public Swapper(){
-		PrintWriter keyWriter;
-		PrintWriter valuesWriter;
 		
 		try {
-			keyWriter = new PrintWriter("keys.txt");
-			valuesWriter = new PrintWriter("values.txt");
+			PrintWriter keyWriter = new PrintWriter("keys.txt");
+			PrintWriter valuesWriter = new PrintWriter("values.txt");
 			keyWriter.print("");
 			keyWriter.close();
 			
@@ -120,131 +128,90 @@ public class Swapper {
 
 	}
 	
-	public List<List<int[][]>> extendPath(List<int[][]> path){
-		
-		List<List<int[][]>> nextPaths = new ArrayList<List<int[][]>>();
-		List<int[][]> nextStates = getNextStates(path.get(path.size()-1));
-		
-		for(int i=0; i<nextStates.size();i++){
-			List<int[][]> pathClone = new ArrayList<int[][]>();
-			pathClone.addAll(path);
-			pathClone.add(nextStates.get(i));
-			nextPaths.add(pathClone);
-		}
-		
-		return nextPaths;
-		
-	}
+
+	
 	public void breadthFirstSearch(){
-		int[][] goal = {{1,2,3,4},
-				{5,6,7,8},
-				{9,10,11,12},
-				{13,14,15,16}};
-		
-		int[][] goal2 = 	{{2, 4, 6, 14},
-							{15, 8, 3, 1},
-							{10, 5, 9, 2},
-							{7, 11, 16, 3}};
-		
-		int[][] initialState = 	{{4, 2, 6, 14},
-								{15, 8, 3, 1},
-								{10, 5, 9, 2},
-								{7, 11, 16, 3}};
 		
 		Map<int[][], List<int[][]>> stateMap = new HashMap<int[][], List<int[][]>>();
-		List<int[][]> nextStates = getNextStates(initialState);
 		Queue<int[][]> nextStatesQueue = new LinkedList<int[][]>();
+		List<int[][]> nextStates = getNextStates(initialState);
+
 		
 		nextStatesQueue.addAll(nextStates);
-		putInitialStates(initialState, nextStates);
-		//paths.put(initialState, nextStates);
+		stateMap.put(initialState, nextStates);
 		int[][] nextState = nextStatesQueue.poll();
-		double counter = 0;
+		int duplicates = 0, counter = 0;
 		
-		while(!Arrays.deepEquals(nextState, goal)){
-			
-			if(!containsKey(nextState) && !stateMap.containsKey(nextState)){
-				List<int[][]> children = getNextStates(nextState);
-				
-				if(counter % 100000 == 0){
-					for(Entry<int[][], List<int[][]>> key : stateMap.entrySet()){
-						putIntoTextFile(key.getKey(), key.getValue());
-					}
-					stateMap.clear();
+		while(true){
+			if(!deepContainsKey(nextState, stateMap)){
+				nextStates = getNextStates(nextState);
+				if(deepListContains(nextStates, goal2)){
+					System.out.println("Solution found");
+					retracePath(nextState, stateMap);
+					break;
 				}
-				else
-					stateMap.put(nextState, children);
-				
-				nextStatesQueue.addAll(children);
+				else{
+					stateMap.put(nextState, nextStates);
+					nextStatesQueue.addAll(nextStates);
+				}
 			}
+			else
+				duplicates++;
+			
 			nextState = nextStatesQueue.poll();
-			
-			if(counter % 1000 == 0)
-				System.out.println("Passed " + counter/1000 + "k iterations, No. Q elements are: "+ nextStatesQueue.size());
-			
 			counter++;
-		}
-		System.out.println("Solution found");
-	}
-	private void putInitialStates(int[][] state, List<int[][]> nextStates){
-		 try {
-			ObjectOutputStream oosKeys = new ObjectOutputStream(new FileOutputStream("keys.txt", true));
-			ObjectOutputStream oosValues = new ObjectOutputStream(new FileOutputStream("values.txt", true));
-			
-			oosKeys.writeObject(state);
-			oosValues.writeObject(nextStates);
+			if(counter % 1000 == 0 && counter!= 0)
+				System.out.println("Passed " + counter/1000 + "k iterations, No. Q elements are: "+ nextStatesQueue.size()+ ", Duplicates encountered: " + duplicates);
 
-			oosKeys.close();
-			oosValues.close();
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
 		}
+		
+		
+		
 	}
-	private void putIntoTextFile(int[][] state, List<int[][]> nextStates){
-		 try {
-			ObjectOutputStream oosKeys = new AppendingObjectOutputStream(new FileOutputStream("keys.txt", true));
-			ObjectOutputStream oosValues = new AppendingObjectOutputStream(new FileOutputStream("values.txt", true));
-			
-			oosKeys.writeObject(state);
-			oosValues.writeObject(nextStates);
 
-			oosKeys.close();
-			oosValues.close();
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-	}
-	
-	private boolean containsKey(int[][] key){
-		ObjectInputStream oosKeys = null;
-		int[][] object = null;
-		 try {
-			 	oosKeys = new ObjectInputStream(new FileInputStream("keys.txt"));
-
-			 	while ((object = (int[][]) oosKeys.readObject()) != null) {
-		 			if(Arrays.deepEquals((int[][]) object, key))
-		 				return true;
-			 	}
-			} catch(EOFException e){
-		 		//End of file reached
-		 	} catch(IOException e){
-				e.printStackTrace();
-		 	} catch (ClassNotFoundException e) {
-				e.printStackTrace();
-			} finally{
-				//Finally close the stream
-				try {
-					if(oosKeys!=null)
-						oosKeys.close();
-				} catch (IOException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
+	private void retracePath(int[][] nextState, Map<int[][], List<int[][]>> stateMap) {
+		Stack<int[][]> pathOfStates = new Stack<int[][]>();
+		int[][] ancestor = nextState;
+		
+		//While the ancestor is not equal to the initial state
+		while(!Arrays.deepEquals(ancestor, initialState)){
+			//push the ancestor on to the stack
+			pathOfStates.push(ancestor);
+			//Then loop through the map to find the next ancestor
+			for(Entry<int[][], List<int[][]>> entry : stateMap.entrySet()){
+				if(deepListContains(entry.getValue(), ancestor)){
+					ancestor = entry.getKey();
+					break;
 				}
 			}
-		return false;
-		
+		}
+		System.out.println("Size of path is:" + pathOfStates.size());
+		List<String> instructions = new ArrayList<String>();
+		//For each element in the stack
+		for(int i=0; i<pathOfStates.size()-1; i++){
+			int[][] state1 = pathOfStates.get(i);
+			int[][] state2 = pathOfStates.get(i+1);
+			assert(state1.length == state2.length) : "Mismatching array sizes";
+			String instruction = getInstruction(state1,state2);
+			instructions.add(instruction);
+			
+		}
+		for(String instruction : instructions){
+			System.out.println(instruction);
+		}
+	}
+	private String getInstruction(int[][] state1, int[][] state2){
+		//For each cell in the state
+		for(int j=0; j<state1.length;j++){
+			for(int k=0; k<state1.length;k++){
+				if(state1[j][k] != state2[j][k]){
+					//String pos1 = "(" + j + " " + k + ")";
+					//String pos2 = "";
+					return "Swap " + state1[j][k] +" with " + state2[j][k];
+				}
+			}
+		}
+		return null;
 	}
 	//Requires this due to shallow copying of .clone method
 	private int[][] deepCopyArray(int[][] original){
@@ -259,13 +226,20 @@ public class Swapper {
 	}
 	//Requires this due to shallow checking of .equals method on multidimensional arrays
 	private boolean deepListContains(List<int[][]> nextStates, int[][] copy) {
-		boolean contains = false;
 		for(int i=0; i<nextStates.size(); i++){
-			if(Arrays.deepEquals(nextStates.get(i), copy)){
-				contains = true;
-				break;
-			}
+			if(Arrays.deepEquals(nextStates.get(i), copy))
+				return true;
 		}
-		return contains;
+		return false;
+	}
+	
+	//Deep checking of the hashmap
+	private boolean deepContainsKey(int[][] key, Map<int[][], List<int[][]>> stateMap){
+		for(int[][] k : stateMap.keySet()){
+			if(Arrays.deepEquals(k, key))
+				return true;
+		}
+		return false;
+		
 	}
 }
