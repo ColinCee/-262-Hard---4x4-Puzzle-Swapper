@@ -95,8 +95,6 @@ public class Swapper {
 			
         	}
         	counter++;
-        	if(counter % 50 == 0 && counter!= 0)
-				System.out.println("Passed " + counter + " iterations, ClosedList Size is: " + closedList.size() + ", OpenList size is: "+ openList.size());
 
         }
         return false;
